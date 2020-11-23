@@ -87,7 +87,7 @@ public class ExtensionLoader<T> {
 
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS = new ConcurrentHashMap<>(64);
 
-    private static final ConcurrentMap<Class<?>, Object> EXTENSION_INSTANCES = new ConcurrentHashMap<>(64);
+    private static final ConcurrentMap<Class<?>, Object> EXTENSION_INSTANCES = new ConcurrentHashMap<>(64);//class 和instance创建的实例
 
     private final Class<?> type;
 
@@ -95,7 +95,7 @@ public class ExtensionLoader<T> {
 
     private final ConcurrentMap<Class<?>, String> cachedNames = new ConcurrentHashMap<>();
 
-    private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
+    private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();// name 和实现类的缓存
 
     private final Map<String, Object> cachedActivates = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
@@ -104,7 +104,7 @@ public class ExtensionLoader<T> {
     private String cachedDefaultName;
     private volatile Throwable createAdaptiveInstanceError;
 
-    private Set<Class<?>> cachedWrapperClasses;
+    private Set<Class<?>> cachedWrapperClasses;//wrap包装类
 
     private Map<String, IllegalStateException> exceptions = new ConcurrentHashMap<>();
 
@@ -122,7 +122,7 @@ public class ExtensionLoader<T> {
      * @return non-null
      * @since 2.7.7
      */
-    private static LoadingStrategy[] loadLoadingStrategies() {
+    private static LoadingStrategy[] loadLoadingStrategies() { //加载所有实现类
         return stream(load(LoadingStrategy.class).spliterator(), false)
                 .sorted()
                 .toArray(LoadingStrategy[]::new);
@@ -142,7 +142,7 @@ public class ExtensionLoader<T> {
 
     private ExtensionLoader(Class<?> type) {
         this.type = type;
-        objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
+        objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());//AdaptiveExtensionFactory 实现类
     }
 
     private static <T> boolean withExtensionAnnotation(Class<T> type) {
@@ -426,7 +426,7 @@ public class ExtensionLoader<T> {
             synchronized (holder) {
                 instance = holder.get();
                 if (instance == null) {
-                    instance = createExtension(name, wrap);
+                    instance = createExtension(name, wrap);//扩展点 实现类
                     holder.set(instance);
                 }
             }
@@ -585,7 +585,7 @@ public class ExtensionLoader<T> {
                 instance = cachedAdaptiveInstance.get();
                 if (instance == null) {
                     try {
-                        instance = createAdaptiveExtension();
+                        instance = createAdaptiveExtension();//自适应，代理类(实现接口) 可以从URL取值
                         cachedAdaptiveInstance.set(instance);
                     } catch (Throwable t) {
                         createAdaptiveInstanceError = t;
@@ -646,13 +646,13 @@ public class ExtensionLoader<T> {
                     wrapperClassesList.sort(WrapperComparator.COMPARATOR);
                     Collections.reverse(wrapperClassesList);
                 }
-
+                //循环嵌套注入
                 if (CollectionUtils.isNotEmpty(wrapperClassesList)) {
                     for (Class<?> wrapperClass : wrapperClassesList) {
                         Wrapper wrapper = wrapperClass.getAnnotation(Wrapper.class);
                         if (wrapper == null
                                 || (ArrayUtils.contains(wrapper.matches(), name) && !ArrayUtils.contains(wrapper.mismatches(), name))) {
-                            instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
+                            instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));//包装了wrapper
                         }
                     }
                 }
@@ -693,9 +693,9 @@ public class ExtensionLoader<T> {
                 }
 
                 try {
-                    String property = getSetterProperty(method);
-                    Object object = objectFactory.getExtension(pt, property);
-                    if (object != null) {
+                    String property = getSetterProperty(method);//objectFactory 就是AdaptiveExtensionFactory
+                    Object object = objectFactory.getExtension(pt, property);//获取到代理类 eg   CarInterface$Adaptive
+                    if (object != null) {//待注入对象
                         method.invoke(instance, object);
                     }
                 } catch (Exception e) {
@@ -768,11 +768,12 @@ public class ExtensionLoader<T> {
     /**
      * synchronized in getExtensionClasses
      */
+    //从resource文件读取 cacheWrapperClass class
     private Map<String, Class<?>> loadExtensionClasses() {
         cacheDefaultExtensionName();
 
         Map<String, Class<?>> extensionClasses = new HashMap<>();
-
+        // META-INF/services/  META-INF/dubbo/  META-INF/dubbo/internal/  META-INF/dubbo/external/
         for (LoadingStrategy strategy : strategies) {
             loadDirectory(extensionClasses, strategy.directory(), type.getName(), strategy.preferExtensionClassLoader(), strategy.overridden(), strategy.excludedPackages());
             loadDirectory(extensionClasses, strategy.directory(), type.getName().replace("org.apache", "com.alibaba"), strategy.preferExtensionClassLoader(), strategy.overridden(), strategy.excludedPackages());
@@ -890,14 +891,14 @@ public class ExtensionLoader<T> {
 
     private void loadClass(Map<String, Class<?>> extensionClasses, java.net.URL resourceURL, Class<?> clazz, String name,
                            boolean overridden) throws NoSuchMethodException {
-        if (!type.isAssignableFrom(clazz)) {
+        if (!type.isAssignableFrom(clazz)) { //是否是实现类
             throw new IllegalStateException("Error occurred when loading extension class (interface: " +
                     type + ", class line: " + clazz.getName() + "), class "
                     + clazz.getName() + " is not subtype of interface.");
         }
-        if (clazz.isAnnotationPresent(Adaptive.class)) {
+        if (clazz.isAnnotationPresent(Adaptive.class)) { //注解
             cacheAdaptiveClass(clazz, overridden);
-        } else if (isWrapperClass(clazz)) {
+        } else if (isWrapperClass(clazz)) { //代理
             cacheWrapperClass(clazz);
         } else {
             clazz.getConstructor();
@@ -1025,9 +1026,9 @@ public class ExtensionLoader<T> {
     private Class<?> getAdaptiveExtensionClass() {
         getExtensionClasses();
         if (cachedAdaptiveClass != null) {
-            return cachedAdaptiveClass;
+            return cachedAdaptiveClass;//写实现类 一个@Adaptive注解
         }
-        return cachedAdaptiveClass = createAdaptiveExtensionClass();
+        return cachedAdaptiveClass = createAdaptiveExtensionClass();//创建一个代理类
     }
 
     private Class<?> createAdaptiveExtensionClass() {

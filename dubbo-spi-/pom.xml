@@ -9,8 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>dubbo-spi</artifactId>
-
+    <artifactId>dubbo-spi-</artifactId>
     <dependencies>
         <dependency>
             <groupId>org.apache.dubbo</groupId>

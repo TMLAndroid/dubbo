@@ -158,7 +158,7 @@ public class AdaptiveClassCodeGenerator {
     private String generateMethod(Method method) {
         String methodReturnType = method.getReturnType().getCanonicalName();
         String methodName = method.getName();
-        String methodContent = generateMethodContent(method);
+        String methodContent = generateMethodContent(method);//
         String methodArgs = generateMethodArguments(method);
         String methodThrows = generateMethodThrows(method);
         return String.format(CODE_METHOD_DECLARATION, methodReturnType, methodName, methodArgs, methodThrows, methodContent);
